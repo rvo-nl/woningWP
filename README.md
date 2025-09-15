@@ -1,4 +1,4 @@
-# WoningWP
+# Energie Vraagprofiel van een Woning met Warmtepomp en boiler
 Effect van een woning met 5 kW Warmtepomp op laag spanning net.
 
 Dit project bevat een eenvoudige **HTML/JavaScript simulatie** van een woning met:
