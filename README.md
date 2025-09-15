@@ -7,10 +7,11 @@ Dit project bevat een eenvoudige **HTML/JavaScript simulatie** van een woning me
 - Warmtecapaciteit van de woning (C_woning)
 - Boiler/waterbuffer (C_boiler, instelbaar in liters)
 - Warmtepomp met instelbare COP
-- Regelingen: vrij, thermostaat (aan/uit), modulerend
-  > Thermostaat gestuurd
-  > Modulerend met 2 kW per graad C verschil tussen binnen en buitentemperatuur
-  > Zonder verwarming.
+- Regelingen:
+
+  + Thermostaat gestuurd
+  + Modulerend met 2 kW per graad C verschil tussen binnen en buitentemperatuur
+  + Zonder verwarming.
 
 De tool laat zien hoe de binnentemperatuur, boiler en warmtepompvermogen reageren op buitentemperatuurschommelingen.  
 Het model is een **1R2C-netwerk** en kan gebruikt worden om effecten van isolatie, buffercapaciteit en regeling op het **piekvermogen van het elektriciteitsnet** te onderzoeken.
