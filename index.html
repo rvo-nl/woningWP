@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>1R2C RC-model woning met 5KW thermische WP</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h2>Effect woning met 5 kW thermische WP en boiler op laag spanningsnet (1R2C-model) </h2>
+
+  <label>Rc (m²K/W): <input type="range" id="Rc" min="1" max="8" step="0.5" value="4"></label>
+  <span id="Rcval">4</span><br>
+
+  <label>Oppervlak A (m²): <input type="range" id="A" min="100" max="400" step="10" value="240"></label>
+  <span id="Aval">240</span><br>
+
+  <label>C_w (massa woning, kWh/K): 
+    <input type="range" id="Cw" min="1" max="50" step="1" value="20">
+    <span id="Cwval">20</span>
+  </label><br>
+
+  <label>C_b (boiler, liter): 
+    <input type="range" id="Cb" min="50" max="500" step="10" value="200">
+    <span id="Cbval">200</span>
+  </label><br>
+
+  <label>COP warmtepomp: 
+    <input type="range" id="COP" min="2" max="6" step="0.1" value="4">
+    <span id="COPval">4</span>
+  </label><br>
+
+  <label>Regelstrategie: 
+    <select id="mode">
+      <option value="thermostat">Thermostaat gestuurde WP (aan/uit)</option>
+      <option value="free">Vrije respons (geen verwarming)</option>
+      <option value="modulating">Modulerende WP (proportioneel met 2 kW per °C verschil)</option>
+    </select>
+  </label><br>
+
+  <label>Thermostaat dT (°C) hysterese: 
+    <input type="range" id="hyst" min="0.2" max="2" step="0.1" value="1">
+    <span id="hystval">1</span>
+  </label><br>
+
+  <div id="plot"></div>
+
+<script>
+function simulate(Rc, A, Cw, Cb_liter, COP, mode, dT) {
+  const hours = [...Array(72).keys()];
+  const T_out = hours.map(h => 5 + 5 * Math.sin(2 * Math.PI * h / 24));
+  const T_set = 20;
+
+  
+  // transmissie
+  const U = 1 / Rc;           // W/m²K
+  //const A = parseFloat(document.getElementById("A").value);
+  const H = U * A / 1000;     // kW/K (omgerekend van W naar kW) 
+  const   R = 1 / H;            // K/kW
+
+  // boiler capaciteit uit liters water
+  // Cb=m.c=V.ρ.c  met ρ=1kg/l en c=4.186kJ/kgK=0.001163kWh/kgK
+  const Cb = Cb_liter / 860; // kWh/K
+  let T_in = 20;
+  let T_boiler = 45; // start boiler temp
+
+  let Q = [], T_curve = [], T_boiler_curve = [];
+  let Qmax = 5;  // kW thermisch max
+  let k_mod = 2; // kW per graad verschil
+  let T_boiler_max = 60; // max boiler temp
+  let hp_on = false;
+
+  for (let h = 0; h < hours.length; h++) {
+    let loss = (T_in - T_out[h]) / R;
+
+    let Q_hp = 0;
+    if (mode === "free") {
+      Q_hp = 0;
+    } 
+    else if (mode === "thermostat") {
+      // aan/uit thermostaat
+      if (T_in < T_set - dT) hp_on = true;
+      if (T_in >= T_set) hp_on = false;
+      Q_hp = hp_on ? Qmax : 0;
+    } 
+    else if (mode === "modulating") {
+      // proportioneel moduleren
+      Q_hp = k_mod * (T_set - T_in);
+      Q_hp = Math.max(0, Math.min(Q_hp, Qmax)); // clamp 0..Qmax
+      if (T_boiler >= T_boiler_max) Q_hp = 0; // stop als boiler te heet
+    }
+
+    // verdeling vermogen: helft naar woning, helft naar boiler
+    let Qw = Q_hp * 0.5;
+    let Qb = Q_hp * 0.5;
+
+    // boiler update: warmte in en verlies naar woning
+    T_boiler += Qb / Cb;
+    let boiler_loss = (T_boiler - T_in) * 0.05; // 5% per uur naar woning
+    T_boiler -= boiler_loss / Cb;
+    Qw += boiler_loss; // warmte naar woning
+
+    if (T_boiler > T_boiler_max) T_boiler = T_boiler_max;
+
+    // woning update
+    T_in += (Qw - loss) / Cw;
+
+    T_curve.push(T_in);
+    T_boiler_curve.push(T_boiler);
+    Q.push(Q_hp / COP); // elektrisch vermogen
+  }
+
+  return {hours, T_curve, T_out, Q, T_boiler_curve};
+}
+
+function update() {
+  const Rc = parseFloat(document.getElementById("Rc").value);
+  const A = parseFloat(document.getElementById("A").value);
+  const Cw = parseFloat(document.getElementById("Cw").value);
+  const Cb = parseFloat(document.getElementById("Cb").value);
+  const COP = parseFloat(document.getElementById("COP").value);
+  const mode = document.getElementById("mode").value;
+  const dT = parseFloat(document.getElementById("hyst").value);
+
+  document.getElementById("Rcval").innerText = Rc;
+  document.getElementById("Aval").innerText = A;
+  document.getElementById("Cwval").innerText = Cw;
+  document.getElementById("Cbval").innerText = Cb;
+  document.getElementById("COPval").innerText = COP;
+  document.getElementById("hystval").innerText = dT;
+
+  const sim = simulate(Rc, A, Cw, Cb, COP, mode, dT);
+
+  Plotly.newPlot("plot", [
+    {x: sim.hours, y: sim.T_curve, name: "T_in (°C)"},
+    {x: sim.hours, y: sim.T_out, name: "T_out (°C)", line:{dash:"dot"}},
+    {x: sim.hours, y: sim.T_boiler_curve, name: "T_boiler (°C)", line:{dash:"dash"}},
+    {x: sim.hours, y: sim.Q, name: "Elektrisch vermogen (kW)", yaxis: "y2"}
+  ], {
+    title: "Temperatuur en elektrisch vermogen",
+    xaxis: {title: "Uur"},
+    yaxis: {title: "Temperatuur (°C)"},
+    yaxis2: {title: "Vermogen (kW)", overlaying: "y", side: "right"}
+  });
+}
+
+update();
+document.getElementById("Rc").oninput = update;
+document.getElementById("A").oninput = update;
+document.getElementById("Cw").oninput = update;
+document.getElementById("Cb").oninput = update;
+document.getElementById("COP").oninput = update;
+document.getElementById("mode").oninput = update;
+document.getElementById("hyst").oninput = update;
+</script>
+</body>
+</html>
