@@ -45,9 +45,10 @@
   <div id="plot"></div>
 
 <script>
+    // Simulatie functie met Tout(h)=Tgem+Amp.sin(2pi/24)(h-h0) met Tgem=5°C, Amp=5°C en h0=10uur
 function simulate(Rc, A, Cw, Cb_liter, COP, mode, dT) {
   const hours = [...Array(72).keys()];
-  const T_out = hours.map(h => 5 + 5 * Math.sin(2 * Math.PI * h / 24));
+  const T_out = hours.map(h => 5 + 5 * Math.sin(2 * Math.PI/24 * (h-10))); // buitentemp sinus
   const T_set = 20;
 
   
